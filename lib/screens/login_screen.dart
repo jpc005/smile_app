@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smile_app/screens/home_screen.dart';
 import 'package:smile_app/screens/signup_screen.dart';
 import 'package:smile_app/utils/constants.dart';
@@ -24,14 +26,44 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
+  void _login() async {
     if (_formKey.currentState!.validate()) {
-      // In a real app, this would validate credentials with a backend
-      // For now, we'll hardcode a successful login
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      String input = _phoneController.text.trim();
+      String password = _passwordController.text.trim();
+
+      try {
+        String email = input;
+
+        if (!input.contains('@')) {
+          final snapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('phonenum', isEqualTo: input)
+              .get();
+
+          if (snapshot.docs.isEmpty) {
+            throw FirebaseAuthException(
+              code: 'user-not-found',
+              message: 'Phone number not found.',
+            );
+          }
+
+          email = snapshot.docs.first['email'];
+        }
+
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } on FirebaseAuthException catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Login failed')),
+        );
+      }
     }
   }
 
@@ -62,9 +94,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: AppSizes.paddingXL),
 
-                // Phone number label
                 const Text(
-                  'Phone Number',
+                  'Email or Phone Number',
                   style: TextStyle(
                     color: Colors.black87,
                     fontWeight: FontWeight.w500,
@@ -72,11 +103,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: AppSizes.paddingS),
 
-                // Phone number field
                 TextFormField(
                   controller: _phoneController,
                   decoration: InputDecoration(
-                    hintText: '+63 9',
+                    hintText: 'Enter email or phone number',
                     filled: true,
                     fillColor: Colors.lightBlue.shade100,
                     border: OutlineInputBorder(
@@ -88,17 +118,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       vertical: AppSizes.paddingM,
                     ),
                   ),
-                  keyboardType: TextInputType.phone,
+                  keyboardType: TextInputType.text,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your phone number';
+                      return 'Please enter your email or phone number';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: AppSizes.paddingL),
 
-                // Password label
                 const Text(
                   'Password',
                   style: TextStyle(
@@ -108,11 +137,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: AppSizes.paddingS),
 
-                // Password field
                 TextFormField(
                   controller: _passwordController,
                   decoration: InputDecoration(
-                    hintText: '******',
+                    hintText: '********',
                     filled: true,
                     fillColor: Colors.lightBlue.shade100,
                     border: OutlineInputBorder(
@@ -125,9 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
                         color: Colors.grey,
                       ),
                       onPressed: () {
@@ -146,7 +172,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
 
-                // Remember me checkbox
                 Align(
                   alignment: Alignment.centerRight,
                   child: Row(
@@ -170,7 +195,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: AppSizes.paddingXL),
 
-                // Submit button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -209,10 +233,8 @@ class HeartLogoPainter extends CustomPainter {
 
     final path = Path();
 
-    // Starting point
     path.moveTo(size.width * 0.3, size.height * 0.4);
 
-    // Left curve of heart
     path.cubicTo(
       size.width * 0.1,
       size.height * 0.2,
@@ -222,7 +244,6 @@ class HeartLogoPainter extends CustomPainter {
       size.height * 0.9,
     );
 
-    // Right curve of heart
     path.cubicTo(
       size.width * 0.9,
       size.height * 0.7,
@@ -232,7 +253,6 @@ class HeartLogoPainter extends CustomPainter {
       size.height * 0.4,
     );
 
-    // Connect to the starting point
     path.quadraticBezierTo(
       size.width * 0.5,
       size.height * 0.2,
